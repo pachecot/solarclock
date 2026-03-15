@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/eventlog"
@@ -45,8 +46,10 @@ func startService() error {
 }
 
 func createServiceOption(m *mgr.Mgr) error {
+	fmt.Fprintln(os.Stdout, "creating service", serviceName)
 	p := exePath()
 	if s, err := m.OpenService(serviceName); err == nil {
+		fmt.Fprintln(os.Stdout, "service exists", serviceName)
 		s.Close()
 		return nil
 	}
@@ -55,11 +58,13 @@ func createServiceOption(m *mgr.Mgr) error {
 		Description: serviceDesc,
 	})
 	if err != nil {
+		fmt.Fprintln(os.Stderr, "error creating service", err)
 		return err
 	}
 	defer s.Close()
 	err = eventlog.InstallAsEventCreate(serviceName, eventlog.Error|eventlog.Warning|eventlog.Info)
 	if err != nil {
+		fmt.Fprintln(os.Stderr, "error installing event source", err)
 		s.Delete()
 		return err
 	}
@@ -67,7 +72,7 @@ func createServiceOption(m *mgr.Mgr) error {
 }
 
 func removeServiceOption(m *mgr.Mgr) error {
-	fmt.Fprintln(os.Stderr, "removing service", serviceName)
+	fmt.Fprintln(os.Stdout, "removing service", serviceName)
 	s, err := m.OpenService(serviceName)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error opening service", err)
@@ -101,33 +106,85 @@ func removeServiceOption(m *mgr.Mgr) error {
 }
 
 func stopServiceOption(m *mgr.Mgr) error {
+	fmt.Fprintln(os.Stdout, "stopping service", serviceName)
 	s, err := m.OpenService(serviceName)
 	if err != nil {
+		fmt.Fprintln(os.Stderr, "error getting service", err)
 		return nil
 	}
 	defer s.Close()
 	sts, err := s.Query()
 	if err != nil {
+		fmt.Fprintln(os.Stderr, "error getting service status", err)
 		return err
 	}
-	if sts.State == svc.Running {
-		s.Control(svc.Stop)
+	if sts.State == svc.Stopped {
+		fmt.Fprintln(os.Stdout, "Service already stopped")
+		return nil
 	}
+	sts, err = s.Control(svc.Stop)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error stopping service", err)
+		return err
+	}
+	if sts.State != svc.Stopped {
+		fmt.Fprintln(os.Stdout, "Status", getStateText(sts.State))
+		time.Sleep(100 * time.Millisecond)
+		sts, _ = s.Query()
+	}
+	fmt.Fprintln(os.Stdout, "Status", getStateText(sts.State))
 	return nil
 }
 
 func startServiceOption(m *mgr.Mgr) error {
+	fmt.Fprintln(os.Stdout, "starting service", serviceName)
 	s, err := m.OpenService(serviceName)
 	if err != nil {
+		fmt.Fprintln(os.Stderr, "error getting service", err)
 		return nil
 	}
 	defer s.Close()
 	sts, err := s.Query()
 	if err != nil {
+		fmt.Fprintln(os.Stderr, "error getting service status", err)
 		return err
 	}
-	if sts.State != svc.Running {
-		s.Start()
+	if sts.State == svc.Running {
+		fmt.Fprintln(os.Stdout, "Status", getStateText(sts.State))
 	}
+	err = s.Start()
+	if err != nil {
+		return err
+	}
+	sts, err = s.Query()
+	if err != nil {
+		return err
+	}
+	if sts.State == svc.StartPending {
+		fmt.Fprintln(os.Stdout, "Status", getStateText(sts.State))
+		time.Sleep(100 * time.Millisecond)
+		sts, _ = s.Query()
+	}
+	fmt.Fprintln(os.Stdout, "Status", getStateText(sts.State))
 	return nil
+}
+
+func getStateText(s svc.State) string {
+	switch s {
+	case svc.Stopped:
+		return "Stopped"
+	case svc.StartPending:
+		return "StartPending"
+	case svc.StopPending:
+		return "StopPending"
+	case svc.Running:
+		return "Running"
+	case svc.ContinuePending:
+		return "ContinuePending"
+	case svc.PausePending:
+		return "PausePending"
+	case svc.Paused:
+		return "Paused"
+	}
+	return "Other"
 }

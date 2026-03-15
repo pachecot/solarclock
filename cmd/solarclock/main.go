@@ -103,7 +103,7 @@ func setPort(port uint32) error {
 }
 
 func parsePort() {
-	if len(os.Args) < 3 {
+	if len(os.Args) < 4 {
 		return
 	}
 	args := os.Args[2:]
@@ -150,7 +150,6 @@ func main() {
 	switch cmd {
 
 	case install:
-		fmt.Printf("installing service\n")
 		parsePort()
 		err := createService()
 		if err != nil {
@@ -158,18 +157,15 @@ func main() {
 		}
 
 	case remove:
-		fmt.Printf("removing service\n")
 		err := removeService()
 		if err != nil {
 			fmt.Printf("error %e\n", err)
 		}
 
 	case start:
-		fmt.Printf("starting service\n")
 		startService()
 
 	case run:
-		fmt.Printf("starting server\n")
 		elog := debug.New(serviceName)
 		defer elog.Close()
 		parsePort()
@@ -178,7 +174,6 @@ func main() {
 		s.runLocal()
 
 	case stop:
-		fmt.Printf("stopping service\n")
 		err := stopService()
 		if err != nil {
 			fmt.Printf("error %e\n", err)
