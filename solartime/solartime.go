@@ -30,6 +30,9 @@ type SolarTime struct {
 	// sunset as a UTC time value
 	SunsetTime time.Time
 
+	// Solar Noon as a UTC time value
+	SolarNoonTime time.Time
+
 	// UTC timezone offset string
 	Offset string
 
@@ -114,7 +117,7 @@ func kitchenTime(day time.Time, h time.Duration) string {
 	return day.Add(h).Format(time.Kitchen)
 }
 
-func calcSolarTime(request Request) SolarTime {
+func Query(request Request) SolarTime {
 
 	day, offset := parseDay(request)
 	date := time.Now()
@@ -136,13 +139,14 @@ func calcSolarTime(request Request) SolarTime {
 	TransitTime := sunset - sunrise
 	SolarNoon := sunrise + TransitTime/2
 	return SolarTime{
+		Date:             day.Format("2006-01-02"),
 		Day:              day.UTC(),
 		DateTime:         date.UTC(),
 		Offset:           offset.String(),
-		Date:             day.Format("2006-01-02"),
 		SolarNoon:        kitchenTime(day, SolarNoon),
 		Sunrise:          kitchenTime(day, sunrise),
 		Sunset:           kitchenTime(day, sunset),
+		SolarNoonTime:    day.Add(SolarNoon).UTC(),
 		SunriseTime:      day.Add(sunrise).UTC(),
 		SunsetTime:       day.Add(sunset).UTC(),
 		SunlightDuration: TransitTime.String(),
@@ -184,7 +188,7 @@ func getSolar(r *http.Request) (SolarTime, error) {
 	if err != nil {
 		return SolarTime{}, err
 	}
-	return calcSolarTime(request), nil
+	return Query(request), nil
 }
 
 func XmlHandler(w http.ResponseWriter, r *http.Request) {
