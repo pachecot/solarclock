@@ -45,6 +45,7 @@ const (
 	remove
 	start
 	stop
+	status
 	run
 	unknown
 )
@@ -58,6 +59,8 @@ func parseCmd() command {
 		return remove
 	case "start":
 		return start
+	case "status":
+		return status
 	case "run":
 		return run
 	case "stop":
@@ -164,6 +167,9 @@ func main() {
 
 	case start:
 		startService()
+
+	case status:
+		statusService()
 
 	case run:
 		elog := debug.New(serviceName)

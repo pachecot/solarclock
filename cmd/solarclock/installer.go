@@ -45,6 +45,10 @@ func startService() error {
 	return configureService(startServiceOption)
 }
 
+func statusService() error {
+	return configureService(statusServiceOption)
+}
+
 func createServiceOption(m *mgr.Mgr) error {
 	fmt.Fprintln(os.Stdout, "creating service", serviceName)
 	p := exePath()
@@ -131,6 +135,23 @@ func stopServiceOption(m *mgr.Mgr) error {
 		fmt.Fprintln(os.Stdout, "Status", getStateText(sts.State))
 		time.Sleep(100 * time.Millisecond)
 		sts, _ = s.Query()
+	}
+	fmt.Fprintln(os.Stdout, "Status", getStateText(sts.State))
+	return nil
+}
+
+func statusServiceOption(m *mgr.Mgr) error {
+	fmt.Fprintln(os.Stdout, serviceName, "status")
+	s, err := m.OpenService(serviceName)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error getting service", err)
+		return nil
+	}
+	defer s.Close()
+	sts, err := s.Query()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error getting service status", err)
+		return err
 	}
 	fmt.Fprintln(os.Stdout, "Status", getStateText(sts.State))
 	return nil
