@@ -14,17 +14,45 @@ import (
 	"github.com/pachecot/solar"
 )
 
-// SolarTime
+// SolarTime holds the computed solar event times and sun position data
+// for a given location and date.
 type SolarTime struct {
-	DateTime         time.Time
-	SunriseTime      time.Time
-	SunsetTime       time.Time
-	Offset           string
-	Date             string
-	SolarNoon        string
-	Sunrise          string
-	Sunset           string
+
+	// the reference day in UTC
+	Day time.Time
+
+	// the reference date/time in UTC
+	DateTime time.Time
+
+	// sunrise as a UTC time value
+	SunriseTime time.Time
+
+	// sunset as a UTC time value
+	SunsetTime time.Time
+
+	// UTC timezone offset string
+	Offset string
+
+	// date formatted as YYYY-MM-DD
+	Date string
+
+	// time of solar noon in kitchen format
+	SolarNoon string
+
+	// time of sunrise in kitchen format
+	Sunrise string
+
+	// time of sunset in kitchen format
+	Sunset string
+
+	// total duration of sunlight
 	SunlightDuration string
+
+	// corrected sun elevation angle in degrees
+	SolarElevation float64
+
+	// sun azimuth angle in degrees
+	SolarAzimuth float64
 }
 
 type Request struct {
@@ -89,19 +117,27 @@ func kitchenTime(day time.Time, h time.Duration) string {
 func calcSolarTime(request Request) SolarTime {
 
 	day, offset := parseDay(request)
+	date := time.Now()
+	if request.Date != nil {
+		date = *request.Date
+	}
 
-	lt := solar.Location{
+	solLoc := solar.Location{
 		Longitude:      angle.Degrees(request.Longitude),
 		Latitude:       angle.Degrees(request.Latitude),
 		TimeZoneOffset: offset,
 	}
 	JD := julian.Time(day)
-	sunrise, sunset := lt.SunTimes(JD)
+	JT := julian.Time(date)
+	sunrise, sunset := solLoc.SunTimes(JD)
+	elevation := solLoc.SolarElevationCorrected(JT)
+	azimuth := solLoc.SolarAzimuth(JT)
 
 	TransitTime := sunset - sunrise
 	SolarNoon := sunrise + TransitTime/2
 	return SolarTime{
-		DateTime:         day.UTC(),
+		Day:              day.UTC(),
+		DateTime:         date.UTC(),
 		Offset:           offset.String(),
 		Date:             day.Format("2006-01-02"),
 		SolarNoon:        kitchenTime(day, SolarNoon),
@@ -110,6 +146,8 @@ func calcSolarTime(request Request) SolarTime {
 		SunriseTime:      day.Add(sunrise).UTC(),
 		SunsetTime:       day.Add(sunset).UTC(),
 		SunlightDuration: TransitTime.String(),
+		SolarElevation:   elevation.Degrees(),
+		SolarAzimuth:     azimuth.Degrees(),
 	}
 }
 
